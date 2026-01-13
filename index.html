@@ -63,19 +63,24 @@
   iframe {
     height: 320px;
   }
-  nav a {
-  display: inline-block;
-  padding: 6px 14px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.08);
-  margin: 5px;
-  font-size: 14px;
-  }
+  .main-nav {
+  margin-top: 15px;
+}
 
-  nav a:hover {
+.main-nav a {
+  display: inline-block;
+  padding: 8px 18px;
+  border-radius: 25px;
+  background: rgba(255,255,255,0.1);
+  margin: 6px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.main-nav a:hover {
   background: #00d4ff;
   color: #000;
-  }
+}
   </style>
 </head>
 <body>
@@ -84,10 +89,10 @@
   <h1>PlugNTech</h1>
   <p>Your Daily Source for Tech Updates, Reviews & Deals</p>
 
-  <nav style="margin-top:15px;">
-    <a href="index.html" style="margin:0 10px;">Home</a>
-    <a href="deals.html" style="margin:0 10px;">Deals</a>
-    <a href="news.html" style="margin:0 10px;">Tech News</a>
+  <nav class="main-nav">
+    <a href="index.html">Home</a>
+    <a href="deals.html">Deals</a>
+    <a href="news.html">Tech News</a>
   </nav>
 </header>
 
