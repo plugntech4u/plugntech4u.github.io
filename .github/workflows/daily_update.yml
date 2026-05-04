@@ -1,0 +1,43 @@
+name: Daily Tech Update
+
+on:
+  schedule:
+    # Runs every day at 2:30 AM UTC = 8:00 AM IST
+    - cron: '30 2 * * *'
+
+  # Allow manual trigger from GitHub Actions tab anytime
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-tech-page:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out your repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. Run the update script
+      - name: Generate and inject daily tech update
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}   # optional
+        run: python generate_update.py
+
+      # 4. Commit and push the updated HTML
+      - name: Commit updated tech-updates.html
+        run: |
+          git config user.name  "PlugNTech Bot"
+          git config user.email "bot@plugntech4u.github.io"
+          git add tech-updates.html
+          git diff --cached --quiet || git commit -m "🤖 Auto: Daily tech update $(date +'%d %b %Y')"
+          git push
