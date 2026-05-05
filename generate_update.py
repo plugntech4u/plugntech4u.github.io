@@ -1,6 +1,7 @@
 """
 PlugNTech Daily Tech Update Generator
 Uses Google Gemini 2.5 Flash (free tier, 2026)
+Retries automatically on 503 busy errors
 """
 
 import os
@@ -18,15 +19,18 @@ TODAY          = datetime.now(IST)
 DATE_STR       = TODAY.strftime("%-d %B %Y")   # e.g. "5 May 2026"
 DAY_NAME       = TODAY.strftime("%A")           # e.g. "Tuesday"
 
-# Current free-tier models as of May 2026 (in order of preference)
+# Current free-tier models as of May 2026
 MODELS = [
-    "gemini-2.5-flash-lite-preview-06-17",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
+    "gemini-2.5-flash-preview-05-20",
 ]
 
+MAX_RETRIES = 5          # how many times to retry each model on 503
+RETRY_WAIT  = 20         # seconds to wait between retries
 
-# ── Call Gemini API ───────────────────────────────────────────────────────────
+
+# ── Call Gemini API (with retry) ──────────────────────────────────────────────
 def call_gemini(model: str, prompt: str) -> str:
     payload = json.dumps({
         "contents": [{"parts": [{"text": prompt}]}],
@@ -48,15 +52,38 @@ def call_gemini(model: str, prompt: str) -> str:
         method="POST"
     )
 
-    with urllib.request.urlopen(req, timeout=60) as r:
-        resp = json.loads(r.read())
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                resp = json.loads(r.read())
 
-    candidates = resp.get("candidates", [])
-    if not candidates:
-        raise RuntimeError(f"No candidates returned by {model}: {resp}")
+            candidates = resp.get("candidates", [])
+            if not candidates:
+                raise RuntimeError(f"No candidates returned: {resp}")
 
-    parts = candidates[0].get("content", {}).get("parts", [])
-    return "".join(p.get("text", "") for p in parts).strip()
+            parts = candidates[0].get("content", {}).get("parts", [])
+            return "".join(p.get("text", "") for p in parts).strip()
+
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()
+
+            if e.code == 503:
+                print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — server busy (503), waiting {RETRY_WAIT}s...")
+                time.sleep(RETRY_WAIT)
+                continue  # retry same model
+
+            elif e.code == 429:
+                print(f"   ⚠️  Rate limited (429) — waiting {RETRY_WAIT}s...")
+                time.sleep(RETRY_WAIT)
+                continue
+
+            else:
+                # 404 or other — no point retrying
+                raise urllib.error.HTTPError(
+                    e.url, e.code, body, e.headers, None
+                )
+
+    raise RuntimeError(f"Model {model} failed after {MAX_RETRIES} retries (server busy)")
 
 
 # ── Generate the update ───────────────────────────────────────────────────────
@@ -103,18 +130,14 @@ Format your response EXACTLY as this HTML block. Output ONLY the HTML — no mar
             text = re.sub(r"```\s*$", "", text).strip()
             print(f"✅ Success with model: {model}")
             return text
+        except RuntimeError as e:
+            print(f"⚠️  {model} gave up: {e}")
+            last_error = str(e)
         except urllib.error.HTTPError as e:
-            body = e.read().decode()
-            print(f"⚠️  {model} failed ({e.code}): {body[:300]}")
-            last_error = body
-            if e.code == 429:
-                print("   Rate limited — waiting 15s before trying next model...")
-                time.sleep(15)
-        except Exception as e:
-            print(f"⚠️  {model} failed: {e}")
+            print(f"⚠️  {model} failed ({e.code})")
             last_error = str(e)
 
-    raise RuntimeError(f"All Gemini models failed. Last error: {last_error}")
+    raise RuntimeError(f"All models failed. Last error: {last_error}")
 
 
 # ── Inject into HTML ──────────────────────────────────────────────────────────
