@@ -1,6 +1,7 @@
 """
 PlugNTech Daily Tech Update Generator
-Uses Google Gemini 2.5 (free tier, 2026)
+Uses Groq API (100% free, no billing needed)
+Covers: India tech, global tech, AI, smartphones, healthcare tech
 """
 
 import os
@@ -11,66 +12,61 @@ import urllib.request
 from datetime import datetime, timezone, timedelta
 
 # ── Config ────────────────────────────────────────────────────────────────────
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-HTML_FILE      = "tech-updates.html"
-IST            = timezone(timedelta(hours=5, minutes=30))
-TODAY          = datetime.now(IST)
-DATE_STR       = TODAY.strftime("%-d %B %Y")
-DAY_NAME       = TODAY.strftime("%A")
+GROQ_API_KEY = os.environ["GROQ_API_KEY"]
+HTML_FILE    = "tech-updates.html"
+IST          = timezone(timedelta(hours=5, minutes=30))
+TODAY        = datetime.now(IST)
+DATE_STR     = TODAY.strftime("%-d %B %Y")   # e.g. "6 May 2026"
+DAY_NAME     = TODAY.strftime("%A")           # e.g. "Wednesday"
 
-MODELS      = ["gemini-2.5-flash", "gemini-2.5-pro"]
+# Groq free models (in order of preference)
+MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama3-70b-8192",
+    "mixtral-8x7b-32768",
+]
+
 MAX_RETRIES = 4
-RETRY_WAIT  = 25
+RETRY_WAIT  = 15
 
 
-# ── Call Gemini API ───────────────────────────────────────────────────────────
-def call_gemini(model: str, prompt: str) -> str:
+# ── Call Groq API ─────────────────────────────────────────────────────────────
+def call_groq(model: str, prompt: str) -> str:
     payload = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 2048
-        }
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+        "max_tokens": 1024,
     }).encode()
 
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:generateContent?key={GEMINI_API_KEY}"
-    )
-
     req = urllib.request.Request(
-        url, data=payload,
-        headers={"Content-Type": "application/json"},
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+        },
         method="POST"
     )
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            with urllib.request.urlopen(req, timeout=90) as r:
+            with urllib.request.urlopen(req, timeout=60) as r:
                 resp = json.loads(r.read())
 
-            candidates = resp.get("candidates", [])
-            if not candidates:
-                raise RuntimeError(f"No candidates: {json.dumps(resp)[:300]}")
+            choices = resp.get("choices", [])
+            if not choices:
+                raise RuntimeError(f"No choices in response: {resp}")
 
-            candidate  = candidates[0]
-            finish     = candidate.get("finishReason", "")
-            parts      = candidate.get("content", {}).get("parts", [])
-
-            print(f"   Finish: {finish} | Parts: {len(parts)}")
-
-            if finish == "MAX_TOKENS" and not parts:
-                raise RuntimeError("MAX_TOKENS with empty parts — model overloaded")
-
-            text = "".join(p.get("text", "") for p in parts).strip()
+            text = choices[0].get("message", {}).get("content", "").strip()
             if not text:
-                raise RuntimeError(f"Empty text (finish={finish})")
+                raise RuntimeError("Empty content in response")
 
             return text
 
         except urllib.error.HTTPError as e:
             body = e.read().decode()
-            if e.code in (503, 429):
+            if e.code in (429, 503):
                 print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — HTTP {e.code}, waiting {RETRY_WAIT}s...")
                 time.sleep(RETRY_WAIT)
                 continue
@@ -91,26 +87,31 @@ def generate_update() -> str:
     is_weekend  = TODAY.weekday() >= 5
     update_type = "Weekend Tech Briefing" if is_weekend else "Daily Tech Update"
 
-    # SHORT prompt — avoids MAX_TOKENS issue
     prompt = (
-        f"Write a tech news HTML section for PlugNTech, an Indian tech blog. "
-        f"Today: {DAY_NAME} {DATE_STR}. "
-        f"Cover 6 real tech stories from today (India + global). "
-        f"Output ONLY this HTML, no extra text:\n\n"
+        f"You are the editor of PlugNTech, an Indian tech news blog.\n"
+        f"Today is {DAY_NAME}, {DATE_STR}.\n\n"
+        f"Write a '{update_type}' HTML section with 7 real tech stories covering:\n"
+        f"- India tech news (AI, startups, government policy, telecom)\n"
+        f"- Smartphone or gadget launches\n"
+        f"- Global tech news (Apple, Google, Samsung, Meta, Microsoft, OpenAI)\n"
+        f"- AI developments\n"
+        f"- Healthcare technology (medical AI, health apps, digital health, biotech)\n\n"
+        f"Output ONLY this HTML block, nothing else, no markdown, no backticks:\n\n"
         f'<section class="update-entry">\n'
         f"  <h3>📅 {update_type} — {DATE_STR}</h3>\n"
-        f"  <h4>[catchy subtitle]</h4>\n"
-        f"  <p>[2 sentence intro]</p>\n"
+        f"  <h4>WRITE A CATCHY SUBTITLE HERE</h4>\n"
+        f"  <p>WRITE 2 SENTENCE INTRO HERE</p>\n"
         f"  <p><strong>📌 Today's Tech Highlights</strong></p>\n"
         f"  <p>\n"
-        f"    1️⃣ [story 1]<br>\n"
-        f"    2️⃣ [story 2]<br>\n"
-        f"    3️⃣ [story 3]<br>\n"
-        f"    4️⃣ [story 4]<br>\n"
-        f"    5️⃣ [story 5]<br>\n"
-        f"    6️⃣ [story 6]\n"
+        f"    1️⃣ WRITE INDIA TECH STORY HERE<br>\n"
+        f"    2️⃣ WRITE SMARTPHONE/GADGET STORY HERE<br>\n"
+        f"    3️⃣ WRITE AI STORY HERE<br>\n"
+        f"    4️⃣ WRITE GLOBAL TECH STORY HERE<br>\n"
+        f"    5️⃣ WRITE ANOTHER TECH STORY HERE<br>\n"
+        f"    6️⃣ WRITE ANOTHER TECH STORY HERE<br>\n"
+        f"    🏥 WRITE ONE HEALTHCARE TECH STORY HERE\n"
         f"  </p>\n"
-        f"  <p><strong>🔥 PlugNTech Insight:</strong><br>[insight]</p>\n"
+        f"  <p><strong>🔥 PlugNTech Insight:</strong><br>WRITE 1-2 SENTENCE INSIGHT HERE</p>\n"
         f"  <p><em>Updated: {DATE_STR}</em></p>\n"
         f"</section>"
     )
@@ -119,8 +120,8 @@ def generate_update() -> str:
     for model in MODELS:
         try:
             print(f"⏳ Trying model: {model}")
-            text = call_gemini(model, prompt)
-            # Strip accidental markdown fences
+            text = call_groq(model, prompt)
+            # Strip any accidental markdown fences
             text = re.sub(r"^```html\s*", "", text, flags=re.IGNORECASE)
             text = re.sub(r"^```\s*",     "", text)
             text = re.sub(r"```\s*$",     "", text).strip()
@@ -132,7 +133,7 @@ def generate_update() -> str:
             print(f"⚠️  {model} failed: {e}")
             last_error = str(e)
 
-    raise RuntimeError(f"All models failed. Last error: {last_error}")
+    raise RuntimeError(f"All Groq models failed. Last error: {last_error}")
 
 
 # ── Inject into HTML ──────────────────────────────────────────────────────────
