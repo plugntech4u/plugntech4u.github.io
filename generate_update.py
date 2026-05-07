@@ -1,6 +1,6 @@
 """
 PlugNTech Daily Tech Update Generator
-Uses Groq API (100% free, no billing needed)
+Uses OpenRouter API (100% free, works from GitHub Actions)
 Covers: India tech, global tech, AI, smartphones, healthcare tech
 """
 
@@ -12,26 +12,26 @@ import urllib.request
 from datetime import datetime, timezone, timedelta
 
 # ── Config ────────────────────────────────────────────────────────────────────
-GROQ_API_KEY = os.environ["GROQ_API_KEY"]
-HTML_FILE    = "tech-updates.html"
-IST          = timezone(timedelta(hours=5, minutes=30))
-TODAY        = datetime.now(IST)
-DATE_STR     = TODAY.strftime("%-d %B %Y")   # e.g. "6 May 2026"
-DAY_NAME     = TODAY.strftime("%A")           # e.g. "Wednesday"
+OPENROUTER_API_KEY = os.environ["OPENROUTER_API_KEY"]
+HTML_FILE          = "tech-updates.html"
+IST                = timezone(timedelta(hours=5, minutes=30))
+TODAY              = datetime.now(IST)
+DATE_STR           = TODAY.strftime("%-d %B %Y")
+DAY_NAME           = TODAY.strftime("%A")
 
-# Groq free models (in order of preference)
+# Free models on OpenRouter (in order of preference)
 MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama3-70b-8192",
-    "mixtral-8x7b-32768",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+    "google/gemma-3-27b-it:free",
 ]
 
 MAX_RETRIES = 4
 RETRY_WAIT  = 15
 
 
-# ── Call Groq API ─────────────────────────────────────────────────────────────
-def call_groq(model: str, prompt: str) -> str:
+# ── Call OpenRouter API ───────────────────────────────────────────────────────
+def call_openrouter(model: str, prompt: str) -> str:
     payload = json.dumps({
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -40,11 +40,13 @@ def call_groq(model: str, prompt: str) -> str:
     }).encode()
 
     req = urllib.request.Request(
-        "https://api.groq.com/openai/v1/chat/completions",
+        "https://openrouter.ai/api/v1/chat/completions",
         data=payload,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "HTTP-Referer": "https://plugntech4u.github.io",
+            "X-Title": "PlugNTech Daily Update",
         },
         method="POST"
     )
@@ -53,6 +55,10 @@ def call_groq(model: str, prompt: str) -> str:
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 resp = json.loads(r.read())
+
+            # Check for API-level error
+            if "error" in resp:
+                raise RuntimeError(f"API error: {resp['error']}")
 
             choices = resp.get("choices", [])
             if not choices:
@@ -90,13 +96,13 @@ def generate_update() -> str:
     prompt = (
         f"You are the editor of PlugNTech, an Indian tech news blog.\n"
         f"Today is {DAY_NAME}, {DATE_STR}.\n\n"
-        f"Write a '{update_type}' HTML section with 7 real tech stories covering:\n"
+        f"Write a '{update_type}' HTML section with 7 tech stories covering:\n"
         f"- India tech news (AI, startups, government policy, telecom)\n"
-        f"- Smartphone or gadget launches\n"
+        f"- Smartphone or gadget launches in India\n"
         f"- Global tech news (Apple, Google, Samsung, Meta, Microsoft, OpenAI)\n"
         f"- AI developments\n"
         f"- Healthcare technology (medical AI, health apps, digital health, biotech)\n\n"
-        f"Output ONLY this HTML block, nothing else, no markdown, no backticks:\n\n"
+        f"Output ONLY this HTML block. No markdown. No backticks. No explanation:\n\n"
         f'<section class="update-entry">\n'
         f"  <h3>📅 {update_type} — {DATE_STR}</h3>\n"
         f"  <h4>WRITE A CATCHY SUBTITLE HERE</h4>\n"
@@ -104,7 +110,7 @@ def generate_update() -> str:
         f"  <p><strong>📌 Today's Tech Highlights</strong></p>\n"
         f"  <p>\n"
         f"    1️⃣ WRITE INDIA TECH STORY HERE<br>\n"
-        f"    2️⃣ WRITE SMARTPHONE/GADGET STORY HERE<br>\n"
+        f"    2️⃣ WRITE SMARTPHONE OR GADGET STORY HERE<br>\n"
         f"    3️⃣ WRITE AI STORY HERE<br>\n"
         f"    4️⃣ WRITE GLOBAL TECH STORY HERE<br>\n"
         f"    5️⃣ WRITE ANOTHER TECH STORY HERE<br>\n"
@@ -120,7 +126,7 @@ def generate_update() -> str:
     for model in MODELS:
         try:
             print(f"⏳ Trying model: {model}")
-            text = call_groq(model, prompt)
+            text = call_openrouter(model, prompt)
             # Strip any accidental markdown fences
             text = re.sub(r"^```html\s*", "", text, flags=re.IGNORECASE)
             text = re.sub(r"^```\s*",     "", text)
@@ -133,7 +139,7 @@ def generate_update() -> str:
             print(f"⚠️  {model} failed: {e}")
             last_error = str(e)
 
-    raise RuntimeError(f"All Groq models failed. Last error: {last_error}")
+    raise RuntimeError(f"All OpenRouter models failed. Last error: {last_error}")
 
 
 # ── Inject into HTML ──────────────────────────────────────────────────────────
