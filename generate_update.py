@@ -1,7 +1,7 @@
 """
 PlugNTech Daily Tech Update Generator
-Uses OpenRouter API (100% free, works from GitHub Actions)
-Covers: India tech, global tech, AI, smartphones, healthcare tech
+Uses OpenRouter API (100% free)
+Uses openrouter/free auto-router — always picks a working free model automatically
 """
 
 import os
@@ -19,15 +19,17 @@ TODAY              = datetime.now(IST)
 DATE_STR           = TODAY.strftime("%-d %B %Y")
 DAY_NAME           = TODAY.strftime("%A")
 
-# Free models on OpenRouter (in order of preference)
+# openrouter/free auto-picks any available free model
+# Specific models as fallback
 MODELS = [
+    "openrouter/auto",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "mistralai/mistral-7b-instruct:free",
-    "google/gemma-3-27b-it:free",
+    "deepseek/deepseek-r1:free",
+    "qwen/qwen3-235b-a22b:free",
 ]
 
 MAX_RETRIES = 4
-RETRY_WAIT  = 15
+RETRY_WAIT  = 20
 
 
 # ── Call OpenRouter API ───────────────────────────────────────────────────────
@@ -53,21 +55,29 @@ def call_openrouter(model: str, prompt: str) -> str:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=90) as r:
                 resp = json.loads(r.read())
 
-            # Check for API-level error
             if "error" in resp:
-                raise RuntimeError(f"API error: {resp['error']}")
+                err = resp["error"]
+                code = err.get("code", 0)
+                if code in (429, 503):
+                    print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — rate limited, waiting {RETRY_WAIT}s...")
+                    time.sleep(RETRY_WAIT)
+                    continue
+                raise RuntimeError(f"API error: {err}")
 
             choices = resp.get("choices", [])
             if not choices:
-                raise RuntimeError(f"No choices in response: {resp}")
+                raise RuntimeError(f"No choices: {resp}")
 
             text = choices[0].get("message", {}).get("content", "").strip()
             if not text:
-                raise RuntimeError("Empty content in response")
+                raise RuntimeError("Empty content")
 
+            # Show which model actually responded
+            model_used = resp.get("model", model)
+            print(f"   Model used: {model_used}")
             return text
 
         except urllib.error.HTTPError as e:
@@ -78,11 +88,7 @@ def call_openrouter(model: str, prompt: str) -> str:
                 continue
             raise RuntimeError(f"HTTP {e.code}: {body[:300]}")
 
-        except RuntimeError as e:
-            if attempt < MAX_RETRIES:
-                print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — {e}, retrying in {RETRY_WAIT}s...")
-                time.sleep(RETRY_WAIT)
-                continue
+        except RuntimeError:
             raise
 
     raise RuntimeError(f"{model} failed after {MAX_RETRIES} attempts")
@@ -133,13 +139,13 @@ def generate_update() -> str:
             text = re.sub(r"```\s*$",     "", text).strip()
             if not text:
                 raise RuntimeError("Empty after cleanup")
-            print(f"✅ Success with {model} ({len(text)} chars)")
+            print(f"✅ Success! ({len(text)} chars)")
             return text
         except Exception as e:
             print(f"⚠️  {model} failed: {e}")
             last_error = str(e)
 
-    raise RuntimeError(f"All OpenRouter models failed. Last error: {last_error}")
+    raise RuntimeError(f"All models failed. Last error: {last_error}")
 
 
 # ── Inject into HTML ──────────────────────────────────────────────────────────
