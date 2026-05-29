@@ -1,7 +1,7 @@
 """
 PlugNTech Daily Tech Update Generator
 Uses OpenRouter API (100% free)
-Uses openrouter/free auto-router — always picks a working free model automatically
+Unique topic categories — not your typical AI news roundup!
 """
 
 import os
@@ -19,8 +19,6 @@ TODAY              = datetime.now(IST)
 DATE_STR           = TODAY.strftime("%-d %B %Y")
 DAY_NAME           = TODAY.strftime("%A")
 
-# openrouter/free auto-picks any available free model
-# Specific models as fallback
 MODELS = [
     "openrouter/auto",
     "meta-llama/llama-3.3-70b-instruct:free",
@@ -37,8 +35,8 @@ def call_openrouter(model: str, prompt: str) -> str:
     payload = json.dumps({
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
-        "max_tokens": 1024,
+        "temperature": 0.85,
+        "max_tokens": 1200,
     }).encode()
 
     req = urllib.request.Request(
@@ -59,7 +57,7 @@ def call_openrouter(model: str, prompt: str) -> str:
                 resp = json.loads(r.read())
 
             if "error" in resp:
-                err = resp["error"]
+                err  = resp["error"]
                 code = err.get("code", 0)
                 if code in (429, 503):
                     print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — rate limited, waiting {RETRY_WAIT}s...")
@@ -75,9 +73,7 @@ def call_openrouter(model: str, prompt: str) -> str:
             if not text:
                 raise RuntimeError("Empty content")
 
-            # Show which model actually responded
-            model_used = resp.get("model", model)
-            print(f"   Model used: {model_used}")
+            print(f"   Model used: {resp.get('model', model)}")
             return text
 
         except urllib.error.HTTPError as e:
@@ -100,30 +96,42 @@ def generate_update() -> str:
     update_type = "Weekend Tech Briefing" if is_weekend else "Daily Tech Update"
 
     prompt = (
-        f"You are the editor of PlugNTech, an Indian tech news blog.\n"
+        f"You are the editor of PlugNTech, a tech blog famous for covering stories "
+        f"that NO other tech blog covers. Your readers come here specifically because "
+        f"they find fresh, unusual, thought-provoking tech stories they can't find anywhere else.\n\n"
         f"Today is {DAY_NAME}, {DATE_STR}.\n\n"
-        f"Write a '{update_type}' HTML section with 7 tech stories covering:\n"
-        f"- India tech news (AI, startups, government policy, telecom)\n"
-        f"- Smartphone or gadget launches in India\n"
-        f"- Global tech news (Apple, Google, Samsung, Meta, Microsoft, OpenAI)\n"
-        f"- AI developments\n"
-        f"- Healthcare technology (medical AI, health apps, digital health, biotech)\n\n"
-        f"Output ONLY this HTML block. No markdown. No backticks. No explanation:\n\n"
+        f"Write a '{update_type}' section with exactly 7 stories, one for each category below.\n"
+        f"Be specific, interesting and surprising. Avoid generic AI chatbot news.\n"
+        f"Think: tech in unexpected places, weird science breakthroughs, gadgets changing lives, "
+        f"things that make readers say 'I had no idea this existed!'\n\n"
+        f"CATEGORIES (write one story per category):\n"
+        f"🌍 INTERNATIONAL TECH — Unusual global tech story most blogs ignore "
+        f"(e.g. microchips in sports equipment, smart roads in Norway, AR glasses for blind people)\n"
+        f"🇮🇳 INDIA TECH — One India-specific tech story (startup, policy, innovation, telecom)\n"
+        f"🚀 LAUNCH OF THE DAY — One interesting new product, app, device or service launched recently\n"
+        f"🧠 TECH ADVANCEMENT — A surprising scientific or engineering breakthrough "
+        f"(new material, battery tech, space, quantum, robotics)\n"
+        f"🏥 HEALTHCARE TECH — Medical technology, health AI, biotech, digital health\n"
+        f"💡 HIDDEN GEM — Something completely underreported that tech readers would love to know\n"
+        f"🔮 FUTURE WATCH — An upcoming technology or trend that will matter in 1-3 years\n\n"
+        f"Output ONLY this HTML. No markdown. No backticks. No explanation before or after:\n\n"
         f'<section class="update-entry">\n'
         f"  <h3>📅 {update_type} — {DATE_STR}</h3>\n"
-        f"  <h4>WRITE A CATCHY SUBTITLE HERE</h4>\n"
-        f"  <p>WRITE 2 SENTENCE INTRO HERE</p>\n"
+        f"  <h4>WRITE ONE CATCHY HEADLINE THAT CAPTURES TODAY'S MOST INTERESTING STORY</h4>\n"
+        f"  <p>WRITE 2 ENGAGING SENTENCES that make the reader excited to read today's updates.</p>\n"
         f"  <p><strong>📌 Today's Tech Highlights</strong></p>\n"
         f"  <p>\n"
-        f"    1️⃣ WRITE INDIA TECH STORY HERE<br>\n"
-        f"    2️⃣ WRITE SMARTPHONE OR GADGET STORY HERE<br>\n"
-        f"    3️⃣ WRITE AI STORY HERE<br>\n"
-        f"    4️⃣ WRITE GLOBAL TECH STORY HERE<br>\n"
-        f"    5️⃣ WRITE ANOTHER TECH STORY HERE<br>\n"
-        f"    6️⃣ WRITE ANOTHER TECH STORY HERE<br>\n"
-        f"    🏥 WRITE ONE HEALTHCARE TECH STORY HERE\n"
+        f"    🌍 <strong>International:</strong> WRITE THE STORY IN ONE CLEAR SENTENCE<br>\n"
+        f"    🇮🇳 <strong>India Tech:</strong> WRITE THE STORY IN ONE CLEAR SENTENCE<br>\n"
+        f"    🚀 <strong>Launch:</strong> WRITE THE STORY IN ONE CLEAR SENTENCE<br>\n"
+        f"    🧠 <strong>Advancement:</strong> WRITE THE STORY IN ONE CLEAR SENTENCE<br>\n"
+        f"    🏥 <strong>Healthcare:</strong> WRITE THE STORY IN ONE CLEAR SENTENCE<br>\n"
+        f"    💡 <strong>Hidden Gem:</strong> WRITE THE STORY IN ONE CLEAR SENTENCE<br>\n"
+        f"    🔮 <strong>Future Watch:</strong> WRITE THE STORY IN ONE CLEAR SENTENCE\n"
         f"  </p>\n"
-        f"  <p><strong>🔥 PlugNTech Insight:</strong><br>WRITE 1-2 SENTENCE INSIGHT HERE</p>\n"
+        f"  <p><strong>🔥 PlugNTech Insight:</strong><br>"
+        f"WRITE 1-2 SENTENCES — a sharp, original thought about what today's news means "
+        f"for the future or for Indian readers specifically</p>\n"
         f"  <p><em>Updated: {DATE_STR}</em></p>\n"
         f"</section>"
     )
@@ -133,7 +141,6 @@ def generate_update() -> str:
         try:
             print(f"⏳ Trying model: {model}")
             text = call_openrouter(model, prompt)
-            # Strip any accidental markdown fences
             text = re.sub(r"^```html\s*", "", text, flags=re.IGNORECASE)
             text = re.sub(r"^```\s*",     "", text)
             text = re.sub(r"```\s*$",     "", text).strip()
