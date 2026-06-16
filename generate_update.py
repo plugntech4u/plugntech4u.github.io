@@ -1,7 +1,7 @@
 """
 PlugNTech Daily Tech Update Generator
 Uses OpenRouter API (100% free)
-Updated with working free models as of June 2026
+Models verified from OpenRouter free list on 16 June 2026
 """
 
 import os
@@ -19,16 +19,18 @@ TODAY              = datetime.now(IST)
 DATE_STR           = TODAY.strftime("%-d %B %Y")
 DAY_NAME           = TODAY.strftime("%A")
 
-# Working free models on OpenRouter as of June 2026
+# Verified free models on OpenRouter as of 16 June 2026
 MODELS = [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "google/gemma-3-27b-it:free",
-    "nvidia/llama-3.1-nemotron-70b-instruct:free",
-    "deepseek/deepseek-v3-base:free",
-    "openai/gpt-4o-mini:free",
+    "openrouter/owl-alpha",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "openai/gpt-oss-120b:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "openai/gpt-oss-20b:free",
+    "moonshotai/kimi-k2.6:free",
 ]
 
-MAX_RETRIES = 4
+MAX_RETRIES = 3
 RETRY_WAIT  = 20
 
 
@@ -62,24 +64,23 @@ def call_openrouter(model: str, prompt: str) -> str:
                 err  = resp["error"]
                 code = err.get("code", 0)
                 msg  = err.get("message", "")
-                # Skip to next model on 402 (credits) or 404 (not found)
                 if code in (402, 404):
-                    raise RuntimeError(f"Skip model — {code}: {msg[:100]}")
+                    raise RuntimeError(f"Skip — {code}: {msg[:80]}")
                 if code in (429, 503):
                     print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — rate limited, waiting {RETRY_WAIT}s...")
                     time.sleep(RETRY_WAIT)
                     continue
-                raise RuntimeError(f"API error {code}: {msg[:100]}")
+                raise RuntimeError(f"API error {code}: {msg[:80]}")
 
             choices = resp.get("choices", [])
             if not choices:
-                raise RuntimeError(f"No choices: {resp}")
+                raise RuntimeError("No choices in response")
 
             text = choices[0].get("message", {}).get("content", "").strip()
             if not text:
                 raise RuntimeError("Empty content")
 
-            print(f"   Model used: {resp.get('model', model)}")
+            print(f"   ✅ Model used: {resp.get('model', model)}")
             return text
 
         except urllib.error.HTTPError as e:
@@ -88,10 +89,9 @@ def call_openrouter(model: str, prompt: str) -> str:
                 print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — HTTP {e.code}, waiting {RETRY_WAIT}s...")
                 time.sleep(RETRY_WAIT)
                 continue
-            # For 402/404 skip immediately to next model
             if e.code in (402, 404):
-                raise RuntimeError(f"Skip model — HTTP {e.code}: {body[:100]}")
-            raise RuntimeError(f"HTTP {e.code}: {body[:300]}")
+                raise RuntimeError(f"Skip — HTTP {e.code}: {body[:80]}")
+            raise RuntimeError(f"HTTP {e.code}: {body[:200]}")
 
         except RuntimeError:
             raise
