@@ -1,7 +1,7 @@
 """
 PlugNTech Daily Tech Update Generator
 Uses OpenRouter API (100% free)
-Unique topic categories — not your typical AI news roundup!
+Updated with working free models as of June 2026
 """
 
 import os
@@ -19,11 +19,13 @@ TODAY              = datetime.now(IST)
 DATE_STR           = TODAY.strftime("%-d %B %Y")
 DAY_NAME           = TODAY.strftime("%A")
 
+# Working free models on OpenRouter as of June 2026
 MODELS = [
-    "openrouter/auto",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "deepseek/deepseek-r1:free",
-    "qwen/qwen3-235b-a22b:free",
+    "google/gemma-3-27b-it:free",
+    "nvidia/llama-3.1-nemotron-70b-instruct:free",
+    "deepseek/deepseek-v3-base:free",
+    "openai/gpt-4o-mini:free",
 ]
 
 MAX_RETRIES = 4
@@ -59,11 +61,15 @@ def call_openrouter(model: str, prompt: str) -> str:
             if "error" in resp:
                 err  = resp["error"]
                 code = err.get("code", 0)
+                msg  = err.get("message", "")
+                # Skip to next model on 402 (credits) or 404 (not found)
+                if code in (402, 404):
+                    raise RuntimeError(f"Skip model — {code}: {msg[:100]}")
                 if code in (429, 503):
                     print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — rate limited, waiting {RETRY_WAIT}s...")
                     time.sleep(RETRY_WAIT)
                     continue
-                raise RuntimeError(f"API error: {err}")
+                raise RuntimeError(f"API error {code}: {msg[:100]}")
 
             choices = resp.get("choices", [])
             if not choices:
@@ -82,6 +88,9 @@ def call_openrouter(model: str, prompt: str) -> str:
                 print(f"   ⏳ Attempt {attempt}/{MAX_RETRIES} — HTTP {e.code}, waiting {RETRY_WAIT}s...")
                 time.sleep(RETRY_WAIT)
                 continue
+            # For 402/404 skip immediately to next model
+            if e.code in (402, 404):
+                raise RuntimeError(f"Skip model — HTTP {e.code}: {body[:100]}")
             raise RuntimeError(f"HTTP {e.code}: {body[:300]}")
 
         except RuntimeError:
