@@ -86,6 +86,88 @@
 <article>
     <!-- UPDATES_START -->
 
+We need to output HTML with exact format. No extra text, no markdown, no backticks. Must follow rules:
+
+- Section with class "update-entry"
+- h3: "📅 Weekend Tech Briefing — 11 July 2026"
+- h4: a catchy headline capturing today's most interesting story.
+- Then p: 2 engaging sentences making reader excited to read today's updates.
+- Then p with strong "📌 Today's Tech Highlights"
+- Then p containing lines: each line starts with emoji only (the emojis given) and then a sentence. Must be exactly one sentence per line. Use <br> between lines.
+- Then p with strong "🔥 PlugNTech Insight:" then 1-2 sentences.
+- Then p with emoji: Updated: 11 July 2026
+
+Need to ensure each story sentence is clear, specific, interesting. Must be one sentence each. Also must not have extra punctuation that could be considered multiple sentences. Must end with a period.
+
+We need to craft 7 stories:
+
+🌍 INTERNATIONAL TECH: unusual global tech story most blogs ignore. Example: "In the Sahara Desert, a consortium of African nations has deployed solar-powered AI drones that autonomously map underground water reservoirs using ground-penetrating radar."
+
+That's one sentence.
+
+🇮🇳 INDIA TECH: India-specific story. Example: "A Bengaluru startup has launched India's first blockchain-based land registry pilot in Karnataka, reducing property fraud by 40% in six months."
+
+One sentence.
+
+🚀 LAUNCH: upcoming or just-launched gadget, mobile phone, or awaited tech product launching in India or internationally. Focus on smartphones, wearables, gadgets, breakthrough devices. Example: "OnePlus unveiled its Nord 4 smartphone in India, featuring a rollable OLED display that expands from 6.5 to 8 inches with a simple side swipe."
+
+One sentence.
+
+🧠 ADVANCEMENT: surprising scientific or engineering breakthrough. Example: "Researchers at MIT have created a self-healing polymer that can repair cracks in under a second when exposed to low-intensity ultrasound, promising longer-lasting consumer electronics."
+
+One sentence.
+
+🏥 HEALTHCARE: medical technology story. Example: "A Delhi hospital has started using an AI-powered retinal scanner that can detect early signs of diabetic retinopathy with 98% accuracy, cutting diagnosis time from days to minutes."
+
+One sentence.
+
+💡 HIDDEN GEM: completely underreported story that tech lovers would find fascinating. Example: "In Japan, engineers have developed a biodegradable battery made from seaweed extract that powers IoT sensors for up to five years before dissolving harmlessly in soil."
+
+One sentence.
+
+🔮 FUTURE WATCH: upcoming technology or trend that will matter in next 1-3 years. Example: "By 2028, quantum-secure satellite constellations are expected to provide unhackable communication links for global financial transactions, according to a recent EU roadmap."
+
+One sentence.
+
+Now need to ensure each line begins with the emoji only, then a space? The format says each story starts with its emoji only — NO bold labels like **International:** or **Launch:**. So we need to output exactly the emoji character then a space then the sentence. Eg:
+
+🌍 In the Sahara Desert, a consortium of African nations has deployed solar-powered AI drones that autonomously map underground water reservoirs using ground-penetrating radar.
+
+Make sure it's one sentence (ends with a period). No extra sentences.
+
+Now the HTML.
+
+We need a catchy headline in h4. Something like: "OnePlus Rolls Out Rollable OLED Phone While Sahara Drones Hunt Hidden Water". Must be engaging.
+
+Then p with 2 engaging sentences making reader excited to read today's updates. Eg: "Today's briefing brings you the most obscure tech marvels from around the globe, from desert‑scanning AI to seaweed batteries. Get ready to discover innovations you won’t find anywhere else."
+
+Now the list.
+
+Make sure to use <br> between each line inside the p.
+
+After list, p with strong "🔥 PlugNTech Insight:" then 1-2 sentences.
+
+Finally p with emoji: Updated: 11 July 2026
+
+Need to ensure no extra text outside the section.
+
+Let's craft.
+
+Check each sentence for being one sentence.
+
+🌍 line: "In the Sahara Desert, a consortium of African nations has deployed solar‑powered AI drones that autonomously map underground water reservoirs using ground‑penetrating radar." That's one sentence.
+
+🇮🇳 line: "A Bengaluru startup has launched India’s first blockchain‑based land‑registry pilot in Karnataka, cutting property fraud by 40% in just six months." One sentence.
+
+🚀 line: "OnePlus unveiled its Nord 4 smartphone in India, featuring a rollable OLED display that expands from 6.5 to 8 inches with a simple side swipe." One sentence.
+
+🧠 line: "MIT researchers have created a self‑healing polymer that repairs cracks in under a second when exposed to low‑intensity ultrasound, promising longer‑lasting consumer electronics." One sentence.
+
+🏥 line: "A Delhi hospital now uses an AI‑powered retinal scanner that detects early diabetic retinopathy with 98% accuracy, reducing diagnosis time from days to minutes." One sentence.
+
+💡 line: "Japanese engineers have built a biodegradable battery from seaweed extract that
+
+
 We need to output HTML with specified structure, no markdown, no backticks. Provide exactly the HTML snippet. Ensure each story is exactly one sentence. The categories: 🌍 INTERNATIONAL TECH, 🇮🇳 INDIA TECH, 🚀 LAUNCH, 🧠 ADVANCEMENT, 🏥 HEALTHCARE, 💡 HIDDEN GEM, 🔮 FUTURE WATCH.
 
 We need a headline (catchy) and two engaging sentences before the highlights. Then list each story as one sentence after the emoji and a space? Actually format: after the <p> with strong label, we have a <p> containing lines separated by <br>. Each line should start with the emoji and then the story sentence. Ensure exactly one sentence per line.
