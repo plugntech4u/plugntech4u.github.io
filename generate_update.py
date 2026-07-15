@@ -2,6 +2,7 @@
 PlugNTech Daily Tech Update Generator
 Uses OpenRouter API (100% free)
 Models verified from OpenRouter free list on 16 June 2026
+Strips thinking/reasoning tags to ensure clean HTML output
 """
 
 import os
@@ -19,7 +20,7 @@ TODAY              = datetime.now(IST)
 DATE_STR           = TODAY.strftime("%-d %B %Y")
 DAY_NAME           = TODAY.strftime("%A")
 
-# Verified free models on OpenRouter as of 16 June 2026
+# Verified free models on OpenRouter as of June 2026
 MODELS = [
     "openrouter/owl-alpha",
     "nvidia/nemotron-3-super-120b-a12b:free",
@@ -34,13 +35,29 @@ MAX_RETRIES = 3
 RETRY_WAIT  = 20
 
 
+# ── Clean the response — strip thinking/reasoning blocks ─────────────────────
+def clean_response(text: str) -> str:
+    # Strip <think>...</think> or <thinking>...</thinking> blocks
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL)
+    # Strip markdown fences
+    text = re.sub(r"^```html\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^```\s*", "", text)
+    text = re.sub(r"```\s*$", "", text)
+    # Extract only the <section>...</section> block if present
+    match = re.search(r'(<section class="update-entry">.*?</section>)', text, flags=re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+
 # ── Call OpenRouter API ───────────────────────────────────────────────────────
 def call_openrouter(model: str, prompt: str) -> str:
     payload = json.dumps({
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.85,
-        "max_tokens": 1200,
+        "max_tokens": 1500,
     }).encode()
 
     req = urllib.request.Request(
@@ -106,43 +123,43 @@ def generate_update() -> str:
 
     prompt = (
         f"You are the editor of PlugNTech, a tech blog famous for covering stories "
-        f"that NO other tech blog covers. Your readers come here specifically because "
-        f"they find fresh, unusual, thought-provoking tech stories they cannot find anywhere else.\n\n"
+        f"that NO other tech blog covers. Your readers come here for fresh, unusual, "
+        f"thought-provoking tech stories they cannot find anywhere else.\n\n"
         f"Today is {DAY_NAME}, {DATE_STR}.\n\n"
-        f"Write a '{update_type}' section with exactly 7 stories, one per category.\n"
-        f"Be specific, surprising and interesting. Make readers say 'I had no idea this existed!'\n\n"
-        f"CATEGORY RULES:\n"
-        f"🌍 INTERNATIONAL TECH — One unusual global tech story most blogs ignore. "
-        f"Think tech in unexpected places, weird science applications, futuristic infrastructure.\n"
-        f"🇮🇳 INDIA TECH — One India-specific story: startup, innovation, government tech, telecom, or local invention.\n"
-        f"🚀 LAUNCH — One upcoming or just-launched gadget, mobile phone, or awaited tech product "
-        f"launching in India or internationally. Focus on smartphones, wearables, gadgets, or breakthrough devices.\n"
-        f"🧠 ADVANCEMENT — One surprising scientific or engineering breakthrough: "
-        f"new material, battery, space, quantum computing, robotics, or energy.\n"
-        f"🏥 HEALTHCARE — One medical technology story: health AI, biotech, wearable health device, digital health.\n"
-        f"💡 HIDDEN GEM — One completely underreported story that tech lovers would find fascinating.\n"
-        f"🔮 FUTURE WATCH — One upcoming technology or trend that will matter in the next 1-3 years.\n\n"
-        f"FORMAT RULES (very important):\n"
-        f"- Each story starts with its emoji only — NO bold labels like **International:** or **Launch:**\n"
-        f"- Each story is exactly one clear, specific, interesting sentence\n"
-        f"- Output ONLY the HTML below. No markdown. No backticks. No extra text:\n\n"
+        f"Write a '{update_type}' with 7 stories — one per category below.\n"
+        f"Be wildly specific. Real place names, real numbers, real company names.\n"
+        f"Think: tech in unexpected places, weird science, gadgets changing lives.\n\n"
+        f"CATEGORIES:\n"
+        f"🌍 INTERNATIONAL — Unusual global tech story most blogs ignore\n"
+        f"🇮🇳 INDIA TECH — Indian startup, innovation, government tech, or local invention\n"
+        f"🚀 LAUNCH — Upcoming or just-launched smartphone, gadget, or breakthrough device\n"
+        f"🧠 ADVANCEMENT — Surprising scientific or engineering breakthrough\n"
+        f"🏥 HEALTHCARE — Medical AI, biotech, wearable health device, or digital health\n"
+        f"💡 HIDDEN GEM — Completely underreported story tech lovers would find fascinating\n"
+        f"🔮 FUTURE WATCH — Technology or trend that will matter in the next 1-3 years\n\n"
+        f"STRICT FORMAT RULES:\n"
+        f"1. Output ONLY the HTML section below — nothing before it, nothing after it\n"
+        f"2. No thinking, no explanation, no markdown, no backticks\n"
+        f"3. Each story line: emoji first, then one vivid specific sentence. NO bold labels.\n"
+        f"4. The h4 headline should be witty and capture the most surprising story of the day\n"
+        f"5. The intro paragraph should be fun, conversational, like talking to a curious friend\n"
+        f"6. The PlugNTech Insight should be sharp, opinionated, India-relevant\n\n"
+        f"OUTPUT THIS EXACT HTML (fill in all CAPS placeholders):\n\n"
         f'<section class="update-entry">\n'
         f"  <h3>📅 {update_type} — {DATE_STR}</h3>\n"
-        f"  <h4>WRITE ONE CATCHY HEADLINE CAPTURING TODAY'S MOST INTERESTING STORY</h4>\n"
-        f"  <p>WRITE 2 ENGAGING SENTENCES making the reader excited to read today's updates.</p>\n"
+        f"  <h4>CATCHY WITTY HEADLINE ABOUT TODAY'S MOST SURPRISING STORY</h4>\n"
+        f"  <p>SENTENCE ONE MAKING READER EXCITED. SENTENCE TWO TEASING WHAT'S INSIDE.</p>\n"
         f"  <p><strong>📌 Today's Tech Highlights</strong></p>\n"
         f"  <p>\n"
-        f"    🌍 INTERNATIONAL TECH STORY IN ONE SENTENCE<br>\n"
-        f"    🇮🇳 INDIA TECH STORY IN ONE SENTENCE<br>\n"
-        f"    🚀 GADGET OR MOBILE LAUNCH STORY IN ONE SENTENCE<br>\n"
-        f"    🧠 TECH ADVANCEMENT STORY IN ONE SENTENCE<br>\n"
-        f"    🏥 HEALTHCARE TECH STORY IN ONE SENTENCE<br>\n"
-        f"    💡 HIDDEN GEM STORY IN ONE SENTENCE<br>\n"
-        f"    🔮 FUTURE WATCH STORY IN ONE SENTENCE\n"
+        f"    🌍 ONE VIVID SPECIFIC SENTENCE ABOUT THE INTERNATIONAL STORY<br>\n"
+        f"    🇮🇳 ONE VIVID SPECIFIC SENTENCE ABOUT THE INDIA STORY<br>\n"
+        f"    🚀 ONE VIVID SPECIFIC SENTENCE ABOUT THE LAUNCH<br>\n"
+        f"    🧠 ONE VIVID SPECIFIC SENTENCE ABOUT THE ADVANCEMENT<br>\n"
+        f"    🏥 ONE VIVID SPECIFIC SENTENCE ABOUT THE HEALTHCARE STORY<br>\n"
+        f"    💡 ONE VIVID SPECIFIC SENTENCE ABOUT THE HIDDEN GEM<br>\n"
+        f"    🔮 ONE VIVID SPECIFIC SENTENCE ABOUT THE FUTURE WATCH\n"
         f"  </p>\n"
-        f"  <p><strong>🔥 PlugNTech Insight:</strong><br>"
-        f"WRITE 1-2 SENTENCES — a sharp original thought about what today's news means "
-        f"for the future or for Indian readers specifically.</p>\n"
+        f"  <p><strong>🔥 PlugNTech Insight:</strong><br>1-2 SHARP OPINIONATED SENTENCES ABOUT WHAT THIS MEANS FOR INDIA OR THE FUTURE</p>\n"
         f"  <p><em>Updated: {DATE_STR}</em></p>\n"
         f"</section>"
     )
@@ -151,12 +168,10 @@ def generate_update() -> str:
     for model in MODELS:
         try:
             print(f"⏳ Trying model: {model}")
-            text = call_openrouter(model, prompt)
-            text = re.sub(r"^```html\s*", "", text, flags=re.IGNORECASE)
-            text = re.sub(r"^```\s*",     "", text)
-            text = re.sub(r"```\s*$",     "", text).strip()
-            if not text:
-                raise RuntimeError("Empty after cleanup")
+            raw  = call_openrouter(model, prompt)
+            text = clean_response(raw)
+            if not text or "<section" not in text:
+                raise RuntimeError(f"No valid HTML section found in output")
             print(f"✅ Success! ({len(text)} chars)")
             return text
         except Exception as e:
