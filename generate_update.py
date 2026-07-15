@@ -1,8 +1,7 @@
 """
 PlugNTech Daily Tech Update Generator
 Uses OpenRouter API (100% free)
-Models verified from OpenRouter free list on 16 June 2026
-Strips thinking/reasoning tags to ensure clean HTML output
+Robustly extracts only the <section> HTML block from model output
 """
 
 import os
@@ -35,19 +34,23 @@ MAX_RETRIES = 3
 RETRY_WAIT  = 20
 
 
-# ── Clean the response — strip thinking/reasoning blocks ─────────────────────
-def clean_response(text: str) -> str:
-    # Strip <think>...</think> or <thinking>...</thinking> blocks
+# ── Extract only the <section> block ─────────────────────────────────────────
+def extract_section(text: str) -> str:
+    # Remove <think> / <thinking> blocks (some models use these)
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     text = re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL)
-    # Strip markdown fences
+
+    # Find the <section ...> opening tag and the matching </section>
+    start = text.find('<section')
+    end   = text.find('</section>')
+
+    if start != -1 and end != -1:
+        return text[start:end + len('</section>')].strip()
+
+    # Fallback: strip markdown fences and return whatever is left
     text = re.sub(r"^```html\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"^```\s*", "", text)
     text = re.sub(r"```\s*$", "", text)
-    # Extract only the <section>...</section> block if present
-    match = re.search(r'(<section class="update-entry">.*?</section>)', text, flags=re.DOTALL)
-    if match:
-        return match.group(1).strip()
     return text.strip()
 
 
@@ -122,44 +125,41 @@ def generate_update() -> str:
     update_type = "Weekend Tech Briefing" if is_weekend else "Daily Tech Update"
 
     prompt = (
-        f"You are the editor of PlugNTech, a tech blog famous for covering stories "
-        f"that NO other tech blog covers. Your readers come here for fresh, unusual, "
-        f"thought-provoking tech stories they cannot find anywhere else.\n\n"
+        f"You are the editor of PlugNTech, a tech blog that covers stories "
+        f"no other tech blog covers — fresh, unusual, thought-provoking.\n\n"
         f"Today is {DAY_NAME}, {DATE_STR}.\n\n"
-        f"Write a '{update_type}' with 7 stories — one per category below.\n"
-        f"Be wildly specific. Real place names, real numbers, real company names.\n"
-        f"Think: tech in unexpected places, weird science, gadgets changing lives.\n\n"
-        f"CATEGORIES:\n"
+        f"Write a '{update_type}' with 7 stories, one per category:\n"
         f"🌍 INTERNATIONAL — Unusual global tech story most blogs ignore\n"
         f"🇮🇳 INDIA TECH — Indian startup, innovation, government tech, or local invention\n"
-        f"🚀 LAUNCH — Upcoming or just-launched smartphone, gadget, or breakthrough device\n"
+        f"🚀 LAUNCH — Just-launched or upcoming smartphone, gadget, or breakthrough device\n"
         f"🧠 ADVANCEMENT — Surprising scientific or engineering breakthrough\n"
-        f"🏥 HEALTHCARE — Medical AI, biotech, wearable health device, or digital health\n"
-        f"💡 HIDDEN GEM — Completely underreported story tech lovers would find fascinating\n"
-        f"🔮 FUTURE WATCH — Technology or trend that will matter in the next 1-3 years\n\n"
-        f"STRICT FORMAT RULES:\n"
-        f"1. Output ONLY the HTML section below — nothing before it, nothing after it\n"
-        f"2. No thinking, no explanation, no markdown, no backticks\n"
-        f"3. Each story line: emoji first, then one vivid specific sentence. NO bold labels.\n"
-        f"4. The h4 headline should be witty and capture the most surprising story of the day\n"
-        f"5. The intro paragraph should be fun, conversational, like talking to a curious friend\n"
-        f"6. The PlugNTech Insight should be sharp, opinionated, India-relevant\n\n"
-        f"OUTPUT THIS EXACT HTML (fill in all CAPS placeholders):\n\n"
+        f"🏥 HEALTHCARE — Medical AI, biotech, wearable health, or digital health\n"
+        f"💡 HIDDEN GEM — Completely underreported story tech lovers would love\n"
+        f"🔮 FUTURE WATCH — Technology or trend that will matter in 1-3 years\n\n"
+        f"Rules:\n"
+        f"- Use real place names, real numbers, real company names\n"
+        f"- Each story = exactly one vivid specific sentence starting with its emoji\n"
+        f"- NO bold labels like **International:** before sentences\n"
+        f"- The h4 headline = witty and captures the most surprising story\n"
+        f"- The intro = 2 fun conversational sentences teasing what's inside\n"
+        f"- PlugNTech Insight = 1-2 sharp opinionated India-relevant sentences\n\n"
+        f"IMPORTANT: Your response must start with <section and end with </section>\n"
+        f"Output NOTHING before <section and NOTHING after </section>\n\n"
         f'<section class="update-entry">\n'
         f"  <h3>📅 {update_type} — {DATE_STR}</h3>\n"
-        f"  <h4>CATCHY WITTY HEADLINE ABOUT TODAY'S MOST SURPRISING STORY</h4>\n"
-        f"  <p>SENTENCE ONE MAKING READER EXCITED. SENTENCE TWO TEASING WHAT'S INSIDE.</p>\n"
+        f"  <h4>WITTY HEADLINE ABOUT TODAY'S MOST SURPRISING STORY</h4>\n"
+        f"  <p>FUN SENTENCE ONE. FUN SENTENCE TWO TEASING WHAT'S INSIDE.</p>\n"
         f"  <p><strong>📌 Today's Tech Highlights</strong></p>\n"
         f"  <p>\n"
-        f"    🌍 ONE VIVID SPECIFIC SENTENCE ABOUT THE INTERNATIONAL STORY<br>\n"
-        f"    🇮🇳 ONE VIVID SPECIFIC SENTENCE ABOUT THE INDIA STORY<br>\n"
-        f"    🚀 ONE VIVID SPECIFIC SENTENCE ABOUT THE LAUNCH<br>\n"
-        f"    🧠 ONE VIVID SPECIFIC SENTENCE ABOUT THE ADVANCEMENT<br>\n"
-        f"    🏥 ONE VIVID SPECIFIC SENTENCE ABOUT THE HEALTHCARE STORY<br>\n"
-        f"    💡 ONE VIVID SPECIFIC SENTENCE ABOUT THE HIDDEN GEM<br>\n"
-        f"    🔮 ONE VIVID SPECIFIC SENTENCE ABOUT THE FUTURE WATCH\n"
+        f"    🌍 ONE VIVID SPECIFIC SENTENCE<br>\n"
+        f"    🇮🇳 ONE VIVID SPECIFIC SENTENCE<br>\n"
+        f"    🚀 ONE VIVID SPECIFIC SENTENCE<br>\n"
+        f"    🧠 ONE VIVID SPECIFIC SENTENCE<br>\n"
+        f"    🏥 ONE VIVID SPECIFIC SENTENCE<br>\n"
+        f"    💡 ONE VIVID SPECIFIC SENTENCE<br>\n"
+        f"    🔮 ONE VIVID SPECIFIC SENTENCE\n"
         f"  </p>\n"
-        f"  <p><strong>🔥 PlugNTech Insight:</strong><br>1-2 SHARP OPINIONATED SENTENCES ABOUT WHAT THIS MEANS FOR INDIA OR THE FUTURE</p>\n"
+        f"  <p><strong>🔥 PlugNTech Insight:</strong><br>1-2 SHARP OPINIONATED SENTENCES</p>\n"
         f"  <p><em>Updated: {DATE_STR}</em></p>\n"
         f"</section>"
     )
@@ -168,12 +168,15 @@ def generate_update() -> str:
     for model in MODELS:
         try:
             print(f"⏳ Trying model: {model}")
-            raw  = call_openrouter(model, prompt)
-            text = clean_response(raw)
-            if not text or "<section" not in text:
-                raise RuntimeError(f"No valid HTML section found in output")
-            print(f"✅ Success! ({len(text)} chars)")
-            return text
+            raw     = call_openrouter(model, prompt)
+            section = extract_section(raw)
+
+            if "<section" not in section:
+                raise RuntimeError("No <section> tag found in output")
+
+            print(f"✅ Success! ({len(section)} chars)")
+            return section
+
         except Exception as e:
             print(f"⚠️  {model} failed: {e}")
             last_error = str(e)
